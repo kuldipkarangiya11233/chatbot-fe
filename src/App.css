@@ -1,0 +1,17 @@
+/*
+  You can add global styles to this file, and also import other style files.
+  However, with Tailwind CSS, most of your styling will be done using utility classes directly in your JSX.
+*/
+
+/* Example:
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+*/

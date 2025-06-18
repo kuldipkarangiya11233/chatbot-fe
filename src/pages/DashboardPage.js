@@ -6,6 +6,8 @@ import DeleteFamilyMemberModal from '../components/DeleteFamilyMemberModal';
 import { useSocket } from '../context/SocketContext';
 import axios from 'axios';
 import AIChat from '../components/AIChat';
+const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+
 
 // Helper function to get initials from full name
 const getInitials = (fullName) => {
@@ -77,7 +79,7 @@ const FamilyChatArea = ({ familyChatId, currentUser }) => {
     
     const fetchMessages = async () => {
       try {
-        const response = await axios.get(`/api/chat/${familyChatId}/messages`, {
+        const response = await axios.get(`${BASE_URL}/api/chat/${familyChatId}/messages`, {
           headers: { Authorization: `Bearer ${currentUser.token}` },
         });
         console.log('Fetched messages:', response.data);
@@ -196,7 +198,7 @@ const FamilyChatArea = ({ familyChatId, currentUser }) => {
     if (!newContent.trim() || !socket || !isConnected || !familyChatId) return;
     
     try {
-      const { data: editedMessage } = await axios.put(`/api/chat/${familyChatId}/messages/${messageId}`,
+      const { data: editedMessage } = await axios.put(`${BASE_URL}/api/chat/${familyChatId}/messages/${messageId}`,
         { content: newContent },
         { headers: { Authorization: `Bearer ${currentUser.token}` } }
       );
@@ -455,13 +457,13 @@ const DashboardPage = () => {
     const fetchDashboardData = async () => {
       try {
         // Fetch family members
-        const familyResponse = await axios.get('/api/users/family-members', {
+        const familyResponse = await axios.get(`${BASE_URL}/api/users/family-members`, {
           headers: { Authorization: `Bearer ${currentUser.token}` },
         });
         setFamilyMembers(familyResponse.data.familyMembers || []);
 
         // Fetch or create family chat
-        const chatResponse = await axios.get('/api/chat', {
+        const chatResponse = await axios.get(`${BASE_URL}/api/chat`, {
           headers: { Authorization: `Bearer ${currentUser.token}` },
         });
         

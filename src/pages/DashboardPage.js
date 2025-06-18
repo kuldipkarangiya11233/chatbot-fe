@@ -168,7 +168,7 @@ const FamilyChatArea = ({ familyChatId, currentUser }) => {
     try {
       console.log('Sending message:', newMessage, 'to chat:', familyChatId);
       
-      const { data: sentMessage } = await axios.post('/api/chat/message',
+      const { data: sentMessage } = await axios.post(`${BASE_URL}/api/chat/message`,
         { content: newMessage, chatId: familyChatId },
         { headers: { Authorization: `Bearer ${currentUser.token}` } }
       );

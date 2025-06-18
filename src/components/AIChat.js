@@ -11,12 +11,33 @@ const AIChat = ({ onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [creatingChat, setCreatingChat] = useState(false);
+  const [editingChatId, setEditingChatId] = useState(null);
+  const [editedTitle, setEditedTitle] = useState('');
+  const [selectedMember, setSelectedMember] = useState(currentUser?.fullName || '');
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [loadingFamilyMembers, setLoadingFamilyMembers] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Fetch all AI chats on component mount
   useEffect(() => {
     fetchChats();
+    fetchFamilyMembers();
   }, []);
+
+  // Set default selected member when currentUser changes
+  useEffect(() => {
+    if (currentUser?.fullName) {
+      setSelectedMember(currentUser.fullName);
+      // Add current user to family members if not already present
+      setFamilyMembers(prev => {
+        const currentUserExists = prev.some(member => member.fullName === currentUser.fullName);
+        if (!currentUserExists) {
+          return [...prev, { _id: currentUser._id, fullName: currentUser.fullName }];
+        }
+        return prev;
+      });
+    }
+  }, [currentUser]);
 
   // Fetch messages when current chat changes
   useEffect(() => {
@@ -66,6 +87,31 @@ const AIChat = ({ onClose }) => {
     }
   };
 
+  const fetchFamilyMembers = async () => {
+    try {
+      setLoadingFamilyMembers(true);
+      const { data } = await axios.get('/api/users/family-members', getAuthHeaders());
+      
+      // Ensure we have an array and include the current user
+      let members = Array.isArray(data) ? data : [];
+      
+      // Add current user if not already in the list
+      if (currentUser && !members.some(member => member._id === currentUser._id)) {
+        members = [{ _id: currentUser._id, fullName: currentUser.fullName }, ...members];
+      }
+      
+      setFamilyMembers(members);
+    } catch (error) {
+      console.error('Error fetching family members:', error);
+      // Set current user as the only member if there's an error
+      if (currentUser) {
+        setFamilyMembers([{ _id: currentUser._id, fullName: currentUser.fullName }]);
+      }
+    } finally {
+      setLoadingFamilyMembers(false);
+    }
+  };
+
   const createNewChat = async () => {
     try {
       setCreatingChat(true);
@@ -87,6 +133,8 @@ const AIChat = ({ onClose }) => {
     if (!newMessage.trim() || !currentChat || loading) return;
 
     const messageContent = newMessage.trim();
+    const messageWithName = selectedMember ? `[${selectedMember}]: ${messageContent}` : messageContent;
+    
     setNewMessage('');
     setLoading(true);
     setError(null);
@@ -95,17 +143,21 @@ const AIChat = ({ onClose }) => {
     const userMessage = {
       _id: Date.now().toString(),
       sender: currentUser,
-      content: messageContent,
+      content: messageWithName,
       isAI: false,
       createdAt: new Date().toISOString(),
+      senderName: selectedMember,
     };
 
     setMessages(prev => [...prev, userMessage]);
+    // Update currentChat and chats message count for instant UI feedback
+    setCurrentChat(prev => prev ? { ...prev, messages: [...(prev.messages || []), userMessage] } : prev);
+    setChats(prev => prev.map(chat => chat._id === currentChat._id ? { ...chat, messages: [...(chat.messages || []), userMessage] } : chat));
 
     try {
       const { data } = await axios.post(
         `/api/ai-chat/${currentChat._id}/message`,
-        { content: messageContent },
+        { content: messageContent, senderName: selectedMember },
         getAuthHeaders()
       );
 
@@ -117,20 +169,21 @@ const AIChat = ({ onClose }) => {
         ));
       }
 
-      // Add AI response
+      // Add AI response without removing the user message
       const aiMessage = data.newMessages.find(msg => msg.isAI);
       if (aiMessage) {
         setMessages(prev => {
-          // Remove the temporary user message and add both real messages
-          const withoutTemp = prev.filter(msg => msg._id !== userMessage._id);
-          return [...withoutTemp, ...data.newMessages];
+          // Keep the user message and add the AI response
+          return [...prev, aiMessage];
         });
+        // Update currentChat and chats with the new messages
+        setCurrentChat(prev => prev ? { ...prev, messages: data.chat.messages } : prev);
+        setChats(prev => prev.map(chat => chat._id === data.chat._id ? { ...chat, messages: data.chat.messages } : chat));
       }
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message. Please try again.');
-      // Remove the temporary user message on error
-      setMessages(prev => prev.filter(msg => msg._id !== userMessage._id));
+      // Keep the user message even on error - just show the error
     } finally {
       setLoading(false);
     }
@@ -162,6 +215,56 @@ const AIChat = ({ onClose }) => {
   const getInitials = (fullName) => {
     if (!fullName) return 'AI';
     return fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const updateChatTitle = async (chatId, newTitle) => {
+    try {
+      setError(null);
+      const { data } = await axios.put(
+        `/api/ai-chat/${chatId}/title`,
+        { title: newTitle },
+        getAuthHeaders()
+      );
+
+      // Update chats list
+      setChats(prev => prev.map(chat => 
+        chat._id === chatId ? data : chat
+      ));
+
+      // Update current chat if it's the one being edited
+      if (currentChat?._id === chatId) {
+        setCurrentChat(data);
+      }
+
+      // Reset editing state
+      setEditingChatId(null);
+      setEditedTitle('');
+    } catch (error) {
+      console.error('Error updating chat title:', error);
+      setError('Failed to update chat title. Please try again.');
+    }
+  };
+
+  const handleEditClick = (e, chat) => {
+    e.stopPropagation();
+    setEditingChatId(chat._id);
+    setEditedTitle(chat.title);
+  };
+
+  const handleTitleSubmit = (e, chatId) => {
+    e.preventDefault();
+    if (editedTitle.trim()) {
+      updateChatTitle(chatId, editedTitle);
+    }
+  };
+
+  const handleTitleKeyDown = (e, chatId) => {
+    if (e.key === 'Enter') {
+      handleTitleSubmit(e, chatId);
+    } else if (e.key === 'Escape') {
+      setEditingChatId(null);
+      setEditedTitle('');
+    }
   };
 
   return (
@@ -244,9 +347,23 @@ const AIChat = ({ onClose }) => {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-gray-900 truncate mb-1">
-                          {chat.title}
-                        </h3>
+                        {editingChatId === chat._id ? (
+                          <form onSubmit={(e) => handleTitleSubmit(e, chat._id)} className="mb-1">
+                            <input
+                              type="text"
+                              value={editedTitle}
+                              onChange={(e) => setEditedTitle(e.target.value)}
+                              onKeyDown={(e) => handleTitleKeyDown(e, chat._id)}
+                              className="w-full px-2 py-1 text-sm border border-indigo-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </form>
+                        ) : (
+                          <h3 className="text-sm font-semibold text-gray-900 truncate mb-1">
+                            {chat.title}
+                          </h3>
+                        )}
                         <p className="text-xs text-gray-500 mb-2">
                           {chat.messages.length > 0 
                             ? `${chat.messages.length} messages`
@@ -264,18 +381,29 @@ const AIChat = ({ onClose }) => {
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteChat(chat._id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                        title="Delete chat"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={(e) => handleEditClick(e, chat)}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"
+                          title="Edit title"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChat(chat._id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                          title="Delete chat"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -345,7 +473,14 @@ const AIChat = ({ onClose }) => {
                               : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
                           }`}
                         >
-                          <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
+                          {!message.isAI && message.senderName && (
+                            <div className="text-xs font-medium text-indigo-200 mb-2">
+                              {message.senderName}
+                            </div>
+                          )}
+                          <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                            {message.isAI ? message.content : message.content.replace(/^\[.*?\]:\s*/, '')}
+                          </div>
                           <div className={`text-xs mt-3 ${
                             message.isAI ? 'text-gray-500' : 'text-indigo-200'
                           }`}>
@@ -397,27 +532,52 @@ const AIChat = ({ onClose }) => {
 
               {/* Input Area */}
               <div className="bg-white border-t border-gray-200 p-6">
-                <form onSubmit={sendMessage} className="flex space-x-4">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Type your message here..."
-                      className="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200 text-sm"
-                      disabled={loading}
-                    />
+                <form onSubmit={sendMessage} className="space-y-4">
+                  {/* Family Member Selector
+                  <div className="flex items-center space-x-3">
+                    <label className="text-sm font-medium text-gray-700">Asking as:</label>
+                    {loadingFamilyMembers ? (
+                      <div className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-500">
+                        Loading...
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedMember}
+                        onChange={(e) => setSelectedMember(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-white"
+                      >
+                        {familyMembers.map((member) => (
+                          <option key={member._id} value={member.fullName}>
+                            {member.fullName}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
-                  <button
-                    type="submit"
-                    disabled={loading || !newMessage.trim()}
-                    className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg font-medium"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                    <span>Send</span>
-                  </button>
+                   */}
+                  {/* Message Input */}
+                  <div className="flex space-x-4">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type your message here..."
+                        className="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200 text-sm"
+                        disabled={loading}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading || !newMessage.trim()}
+                      className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg font-medium"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span>Send</span>
+                    </button>
+                  </div>
                 </form>
               </div>
             </>

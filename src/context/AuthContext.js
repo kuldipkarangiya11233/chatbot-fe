@@ -10,14 +10,25 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true); // To check auth status on initial load
   const [error, setError] = useState(null); // For auth-related errors
 
+  // Set up axios defaults
   useEffect(() => {
-    // Check for existing user session on initial load
-    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+    let userInfo = null;
+    try {
+      userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
+    } catch (e) {
+      userInfo = null;
+    }
+    console.log('Initial userInfo from localStorage:', userInfo); // Debug log
+
     if (userInfo && userInfo.token) {
+      console.log('Setting token in axios defaults:', userInfo.token); // Debug log
       setCurrentUser(userInfo);
-      // You might want to verify the token with the backend here
-      // For simplicity, we're trusting the localStorage item for now
+      // Set the default authorization header for all axios requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${userInfo.token}`;
+    } else {
+      console.log('No token found in localStorage'); // Debug log
+      // Clear the authorization header if no token exists
+      delete axios.defaults.headers.common['Authorization'];
     }
     setLoading(false);
   }, []);
@@ -25,12 +36,22 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setError(null);
     try {
+      console.log('Attempting login...'); // Debug log
       const { data } = await axios.post('/api/users/login', { email, password });
-      localStorage.setItem('userInfo', JSON.stringify(data));
-      setCurrentUser(data);
+      console.log('Login response:', data); // Debug log
+      // Fetch the latest user profile after login
+      const profileRes = await axios.get('/api/users/profile', {
+        headers: { Authorization: `Bearer ${data.token}` },
+      });
+      const userWithProfile = { ...data, ...profileRes.data };
+      localStorage.setItem('userInfo', JSON.stringify(userWithProfile));
+      setCurrentUser(userWithProfile);
+      console.log('Setting token after login:', data.token); // Debug log
+      // Set the authorization header after successful login
       axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-      return data; // Return user data for navigation logic in component
+      return userWithProfile; // Return user data for navigation logic in component
     } catch (err) {
+      console.error('Login error:', err); // Debug log
       const errorMessage = err.response?.data?.message || err.message || 'Login failed';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -40,13 +61,16 @@ export const AuthProvider = ({ children }) => {
   const register = async (email, password, confirmPassword) => {
     setError(null);
     try {
-      const { data } = await axios.post('/api/users/register', { email, password, confirmPassword });
+      console.log('Attempting registration...'); // Debug log
+      const { data } = await axios.post('/api/users', { email, password, confirmPassword });
+      console.log('Registration response:', data); // Debug log
       // Don't log in immediately after registration, let user log in manually
       // localStorage.setItem('userInfo', JSON.stringify(data));
       // setCurrentUser(data);
       // axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
       return data; // Return data for success message
     } catch (err) {
+      console.error('Registration error:', err); // Debug log
       const errorMessage = err.response?.data?.message || err.message || 'Registration failed';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -54,8 +78,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    console.log('Logging out...'); // Debug log
     localStorage.removeItem('userInfo');
     setCurrentUser(null);
+    // Clear the authorization header on logout
     delete axios.defaults.headers.common['Authorization'];
     // Optionally, notify backend about logout
   };
@@ -63,24 +89,19 @@ export const AuthProvider = ({ children }) => {
   const updateUserProfile = async (profileData) => {
     setError(null);
     if (!currentUser || !currentUser.token) {
-        setError("No user token found. Please log in again.");
-        throw new Error("No user token found.");
+      setError("No user token found. Please log in again.");
+      throw new Error("No user token found.");
     }
     try {
-        const config = {
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${currentUser.token}`,
-            },
-        };
-        const { data } = await axios.put('/api/users/profile', profileData, config);
-        localStorage.setItem('userInfo', JSON.stringify(data)); // Update stored user info
-        setCurrentUser(data); // Update context state
-        return data;
+      const { data } = await axios.put('/api/users/profile', profileData);
+      const updatedUser = { ...currentUser, ...data };
+      localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+      return data;
     } catch (err) {
-        const errorMessage = err.response?.data?.message || err.message || 'Profile update failed';
-        setError(errorMessage);
-        throw new Error(errorMessage);
+      const errorMessage = err.response?.data?.message || err.message || 'Profile update failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
   
@@ -88,27 +109,34 @@ export const AuthProvider = ({ children }) => {
   const addFamilyMember = async (memberData) => {
     setError(null);
     if (!currentUser || !currentUser.token) {
-        setError("No user token found. Please log in again.");
-        throw new Error("No user token found.");
+      setError("No user token found. Please log in again.");
+      throw new Error("No user token found.");
     }
     try {
-        const config = {
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${currentUser.token}`,
-            },
-        };
-        const { data } = await axios.post('/api/users/profile/addmember', memberData, config);
-        // Optionally, refresh current user data if familyMembers list is part of it and needs update
-        // For now, just return success data
-        return data;
+      const { data } = await axios.post('/api/users/profile/addmember', memberData);
+      return data;
     } catch (err) {
-        const errorMessage = err.response?.data?.message || err.message || 'Failed to add family member';
-        setError(errorMessage);
-        throw new Error(errorMessage);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to add family member';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
+  // Add a function to check auth status
+  const checkAuthStatus = () => {
+    let userInfo = null;
+    try {
+      userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
+    } catch (e) {
+      userInfo = null;
+    }
+    console.log('Current auth status:', {
+      hasUserInfo: !!userInfo,
+      hasToken: !!(userInfo && userInfo.token),
+      currentUser: currentUser,
+      axiosHeaders: axios.defaults.headers.common
+    });
+  };
 
   const value = {
     currentUser,
@@ -120,7 +148,8 @@ export const AuthProvider = ({ children }) => {
     updateUserProfile,
     addFamilyMember,
     setCurrentUser, // Expose to manually update user if needed from other parts
-    setError // To clear errors manually if needed
+    setError, // To clear errors manually if needed
+    checkAuthStatus // Expose the check function
   };
 
   return (

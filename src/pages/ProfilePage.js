@@ -15,7 +15,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [name, setName] = useState('');
+  const [fullName, setName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [stage, setStage] = useState(''); // Default to 'normal' or empty
   const [currentPassword, setCurrentPassword] = useState(''); // For password change
@@ -34,9 +34,9 @@ const ProfilePage = () => {
     if (!currentUser) {
       navigate('/login', { state: { message: "Please log in to access your profile." } });
     } else {
-      setName(currentUser.name || '');
+      setName(currentUser.fullName || '');
       setMobileNumber(currentUser.mobileNumber || '');
-      setStage(currentUser.stage || '');
+      setStage(currentUser.healthStage || '');
       if (location.state?.message) {
         setMessage(location.state.message);
         navigate(location.pathname, { replace: true, state: {} }); // Clear message from state
@@ -60,7 +60,7 @@ const ProfilePage = () => {
     setAuthError(null); // Clear context error
     setMessage('');
 
-    if (!name || !mobileNumber || !stage) {
+    if (!fullName || !mobileNumber || !stage) {
       setError('Name, mobile number, and stage are required.');
       return;
     }
@@ -92,7 +92,7 @@ const ProfilePage = () => {
     }
     setLoading(true);
     try {
-      const profileData = { name, mobileNumber, stage, ...passwordPayload };
+      const profileData = { fullName, mobileNumber, healthStage: stage, ...passwordPayload };
       const updatedUserData = await updateUserProfile(profileData); // This function is from useAuth and will throw on error
       
       // On success:
@@ -147,17 +147,17 @@ const ProfilePage = () => {
           <div className="space-y-5 p-6 border border-gray-200 rounded-lg bg-gray-50 shadow-inner">
             <h3 className="text-lg font-semibold text-gray-700 border-b border-gray-300 pb-2 mb-4">Personal Information</h3>
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
                 Full Name
               </label>
               <input
-                id="name"
-                name="name"
+                id="fullName"
+                name="fullName"
                 type="text"
                 required
                 className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-shadow"
                 placeholder="Your full name"
-                value={name}
+                value={fullName}
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
@@ -178,24 +178,27 @@ const ProfilePage = () => {
               />
             </div>
 
-            <div>
-              <label htmlFor="stage" className="block text-sm font-medium text-gray-700 mb-1">
-                Current Stage
-              </label>
-              <select
-                id="stage"
-                name="stage"
-                required
-                className="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg shadow-sm transition-shadow"
-                value={stage}
-                onChange={(e) => setStage(e.target.value)}
-              >
-                <option value="" disabled>Select your stage</option>
-                {STAGE_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
-                ))}
-              </select>
-            </div>
+            {/* Show stage only for patients */}
+            {currentUser?.role === 'patient' && (
+              <div>
+                <label htmlFor="stage" className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Stage
+                </label>
+                <select
+                  id="stage"
+                  name="stage"
+                  required
+                  className="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg shadow-sm transition-shadow"
+                  value={stage}
+                  onChange={(e) => setStage(e.target.value)}
+                >
+                  <option value="" disabled>Select your stage</option>
+                  {STAGE_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           
           {/* Password Change Section */}

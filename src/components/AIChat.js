@@ -17,6 +17,7 @@ const AIChat = ({ onClose }) => {
   const [familyMembers, setFamilyMembers] = useState([]);
   const [loadingFamilyMembers, setLoadingFamilyMembers] = useState(false);
   const messagesEndRef = useRef(null);
+  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
 
   // Fetch all AI chats on component mount
   useEffect(() => {
@@ -66,7 +67,7 @@ const AIChat = ({ onClose }) => {
   const fetchChats = async () => {
     try {
       setError(null);
-      const { data } = await axios.get('/api/ai-chat', getAuthHeaders());
+      const { data } = await axios.get(`${BASE_URL}/api/ai-chat`, getAuthHeaders());
       setChats(data);
       if (data.length > 0 && !currentChat) {
         setCurrentChat(data[0]);
@@ -79,7 +80,7 @@ const AIChat = ({ onClose }) => {
 
   const fetchMessages = async (chatId) => {
     try {
-      const { data } = await axios.get(`/api/ai-chat/${chatId}/messages`, getAuthHeaders());
+      const { data } = await axios.get(`${BASE_URL}/api/ai-chat/${chatId}/messages`, getAuthHeaders());
       setMessages(data);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -90,7 +91,7 @@ const AIChat = ({ onClose }) => {
   const fetchFamilyMembers = async () => {
     try {
       setLoadingFamilyMembers(true);
-      const { data } = await axios.get('/api/users/family-members', getAuthHeaders());
+      const { data } = await axios.get(`${BASE_URL}/api/users/family-members`, getAuthHeaders());
       
       // Ensure we have an array and include the current user
       let members = Array.isArray(data) ? data : [];
@@ -116,7 +117,7 @@ const AIChat = ({ onClose }) => {
     try {
       setCreatingChat(true);
       setError(null);
-      const { data } = await axios.post('/api/ai-chat', {}, getAuthHeaders());
+      const { data } = await axios.post(`${BASE_URL}/api/ai-chat`, {}, getAuthHeaders());
       setChats([data, ...chats]);
       setCurrentChat(data);
       setMessages([]);
@@ -156,7 +157,7 @@ const AIChat = ({ onClose }) => {
 
     try {
       const { data } = await axios.post(
-        `/api/ai-chat/${currentChat._id}/message`,
+        `${BASE_URL}/api/ai-chat/${currentChat._id}/message`,
         { content: messageContent, senderName: selectedMember },
         getAuthHeaders()
       );
@@ -193,7 +194,7 @@ const AIChat = ({ onClose }) => {
     if (!window.confirm('Are you sure you want to delete this conversation?')) return;
 
     try {
-      await axios.delete(`/api/ai-chat/${chatId}`, getAuthHeaders());
+      await axios.delete(`${BASE_URL}/api/ai-chat/${chatId}`, getAuthHeaders());
       setChats(prev => prev.filter(chat => chat._id !== chatId));
       if (currentChat?._id === chatId) {
         setCurrentChat(null);
@@ -221,7 +222,7 @@ const AIChat = ({ onClose }) => {
     try {
       setError(null);
       const { data } = await axios.put(
-        `/api/ai-chat/${chatId}/title`,
+        `${BASE_URL}/api/ai-chat/${chatId}/title`,
         { title: newTitle },
         getAuthHeaders()
       );

@@ -18,6 +18,8 @@ const AddFamilyMemberModal = ({ isOpen, onClose, onMemberAdded }) => {
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
 
+  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -78,7 +80,7 @@ const AddFamilyMemberModal = ({ isOpen, onClose, onMemberAdded }) => {
     }
 
     try {
-      const { data } = await axios.post('/api/users/family-member', {
+      const { data } = await axios.post(`${BASE_URL}/api/users/family-member`, {
         fullName: formData.fullName,
         email: formData.email,
         mobileNumber: formData.mobileNumber,

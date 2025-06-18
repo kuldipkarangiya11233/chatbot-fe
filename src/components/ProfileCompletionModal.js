@@ -2,26 +2,27 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 const ProfileCompletionModal = ({ onComplete }) => {
+  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
   const [formData, setFormData] = useState({
     fullName: '',
     mobileNumber: '',
     healthStage: '',
   });
   const [error, setError] = useState('');
-
+  
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
+    
     try {
-      const { data } = await axios.put('/api/users/profile', formData);
+      const { data } = await axios.put(`${BASE_URL}/api/users/profile`, formData);
       onComplete(data);
     } catch (error) {
       setError(error.response?.data?.message || 'Error updating profile');

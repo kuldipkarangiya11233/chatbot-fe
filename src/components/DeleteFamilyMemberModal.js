@@ -4,6 +4,7 @@ import axios from 'axios';
 const DeleteFamilyMemberModal = ({ isOpen, onClose, onMemberDeleted, member }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -20,7 +21,7 @@ const DeleteFamilyMemberModal = ({ isOpen, onClose, onMemberDeleted, member }) =
     setError('');
 
     try {
-      await axios.delete(`/api/users/family-member/${member._id}`);
+      await axios.delete(`${BASE_URL}/api/users/family-member/${member._id}`);
       
       // Call the callback to update the UI
       onMemberDeleted(member._id);

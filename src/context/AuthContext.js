@@ -3,7 +3,8 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+// const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+const BASE_URL = 'http://localhost:5000';
 
 export const useAuth = () => useContext(AuthContext);
 

@@ -17,8 +17,8 @@ const AIChat = ({ onClose }) => {
   const [familyMembers, setFamilyMembers] = useState([]);
   const [loadingFamilyMembers, setLoadingFamilyMembers] = useState(false);
   const messagesEndRef = useRef(null);
-  // const BASE_URL = 'https://chatbot-be-732a.onrender.com';
-  const BASE_URL = 'http://localhost:5000';
+  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+  // const BASE_URL = 'http://localhost:5000';
 
   // Fetch all AI chats on component mount
   useEffect(() => {

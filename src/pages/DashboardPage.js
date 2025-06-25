@@ -6,8 +6,8 @@ import DeleteFamilyMemberModal from '../components/DeleteFamilyMemberModal';
 import { useSocket } from '../context/SocketContext';
 import axios from 'axios';
 import AIChat from '../components/AIChat';
-// const BASE_URL = 'https://chatbot-be-732a.onrender.com';
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+// const BASE_URL = 'http://localhost:5000';
 
 
 // Helper function to get initials from full name

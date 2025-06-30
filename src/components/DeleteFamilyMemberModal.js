@@ -4,8 +4,8 @@ import axios from 'axios';
 const DeleteFamilyMemberModal = ({ isOpen, onClose, onMemberDeleted, member }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
-
+  // const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+  const BASE_URL = 'http://localhost:5000';
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {

@@ -18,7 +18,9 @@ const AddFamilyMemberModal = ({ isOpen, onClose, onMemberAdded }) => {
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
 
-  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+  // const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+  const BASE_URL = 'http://localhost:5000';
+
 
   // Reset form when modal opens/closes
   useEffect(() => {

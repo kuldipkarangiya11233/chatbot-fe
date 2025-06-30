@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
 
 const AIChat = ({ onClose }) => {
   const { currentUser } = useAuth();
@@ -16,8 +17,11 @@ const AIChat = ({ onClose }) => {
   const [selectedMember, setSelectedMember] = useState(currentUser?.fullName || '');
   const [familyMembers, setFamilyMembers] = useState([]);
   const [loadingFamilyMembers, setLoadingFamilyMembers] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [chatToDelete, setChatToDelete] = useState(null);
   const messagesEndRef = useRef(null);
-  const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+  // const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+  const BASE_URL = 'http://localhost:5000';
 
   // Fetch all AI chats on component mount
   useEffect(() => {
@@ -121,6 +125,16 @@ const AIChat = ({ onClose }) => {
       setChats([data, ...chats]);
       setCurrentChat(data);
       setMessages([]);
+      // Immediately send a 'start' message to trigger AI greeting
+      const response = await axios.post(
+        `${BASE_URL}/api/ai-chat/${data._id}/message`,
+        { content: 'start', senderName: currentUser?.fullName },
+        getAuthHeaders()
+      );
+      // Add the AI greeting to messages
+      if (response.data && response.data.newMessages) {
+        setMessages(response.data.newMessages);
+      }
     } catch (error) {
       console.error('Error creating new chat:', error);
       setError('Failed to create new chat. Please try again.');
@@ -190,19 +204,28 @@ const AIChat = ({ onClose }) => {
     }
   };
 
-  const deleteChat = async (chatId) => {
-    if (!window.confirm('Are you sure you want to delete this conversation?')) return;
+  const handleDeleteChat = async (chatId) => {
+    setChatToDelete(chatId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteChat = async () => {
+    if (!chatToDelete) return;
 
     try {
-      await axios.delete(`${BASE_URL}/api/ai-chat/${chatId}`, getAuthHeaders());
-      setChats(prev => prev.filter(chat => chat._id !== chatId));
-      if (currentChat?._id === chatId) {
+      await axios.delete(`${BASE_URL}/api/ai-chat/${chatToDelete}`, getAuthHeaders());
+      setChats(chats.filter((chat) => chat._id !== chatToDelete));
+      if (currentChat && currentChat._id === chatToDelete) {
         setCurrentChat(null);
         setMessages([]);
       }
+      setIsDeleteModalOpen(false);
+      setChatToDelete(null);
     } catch (error) {
-      console.error('Error deleting chat:', error);
-      setError('Failed to delete chat. Please try again.');
+      console.error('Failed to delete chat', error);
+      alert('Failed to delete chat. Please try again.');
+      setIsDeleteModalOpen(false);
+      setChatToDelete(null);
     }
   };
 
@@ -395,7 +418,7 @@ const AIChat = ({ onClose }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteChat(chat._id);
+                            handleDeleteChat(chat._id);
                           }}
                           className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                           title="Delete chat"
@@ -597,6 +620,13 @@ const AIChat = ({ onClose }) => {
           )}
         </div>
       </div>
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDeleteChat}
+        message="Are you sure you want to delete this conversation? This action cannot be undone."
+      />
     </div>
   );
 };

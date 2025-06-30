@@ -3,7 +3,8 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+// const BASE_URL = 'https://chatbot-be-732a.onrender.com';
+const BASE_URL = 'http://localhost:5000';
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -61,11 +62,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (email, password, confirmPassword) => {
+  const register = async (registrationData) => {
     setError(null);
     try {
       console.log('Attempting registration...');
-      const { data } = await axios.post(`${BASE_URL}/api/users`, { email, password, confirmPassword });
+      const { data } = await axios.post(`${BASE_URL}/api/users`, registrationData);
       console.log('Registration response:', data); // Debug log
       return data;
     } catch (err) {
